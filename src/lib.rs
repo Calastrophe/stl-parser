@@ -97,7 +97,7 @@ mod tests {
     fn read_two_files() -> io::Result<()> {
         let _stl = STL::parse("data/teapot.stl")?;
         println!("first");
-        let _large = STL::parse("data/wiki.stl")?;
+        let _large = STL::parse("data/cube.stl")?;
         println!("second");
 
         Ok(())
