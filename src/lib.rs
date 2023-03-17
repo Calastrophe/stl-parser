@@ -9,7 +9,8 @@ use byteorder::{LittleEndian, ReadBytesExt};
 // NOTE: May need to rename 'Vertices', bit confusing.
 type Vertices = [(f32, f32, f32); 3];
 type Vector3 = (f32, f32, f32);
-const SIZE_OF_TRIANGLE: u32 = 50;
+// Will be used when work-stealing is added.
+// const SIZE_OF_TRIANGLE: u32 = 50;
 
 
 /// The STL struct which houses the vecotrs and vertices generated from parsing an STL file.
@@ -91,9 +92,6 @@ impl STL {
 
 #[cfg(test)]
 mod tests {
-
-    use std::mem::size_of;
-
     use super::*;
 
     #[test]
