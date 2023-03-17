@@ -9,6 +9,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 // NOTE: May need to rename 'Vertices', bit confusing.
 type Vertices = [(f32, f32, f32); 3];
 type Vector3 = (f32, f32, f32);
+const SIZE_OF_TRIANGLE: u32 = 50;
 
 
 /// The STL struct which houses the vecotrs and vertices generated from parsing an STL file.
@@ -60,21 +61,28 @@ impl STL {
         cursor.seek(Start(80))?;
         let size = cursor.read_u32::<LittleEndian>()?;
 
-        // Allocate the vectors and then parse our vectors and vertices next.
-        let mut vectors: Vec<Vector3> = Vec::with_capacity(size as _);
-        let mut vertices: Vec<Vertices> = Vec::with_capacity(size as _);
+        // Allocate the vectors inside of the STL
+        let mut stl = STL {vectors: Vec::with_capacity(size as _), vertices: Vec::with_capacity(size as _)};
 
-        // Implement some way to read over this file multi-threaded...
-        // NOTE: Rayon?
-        for _ in 0..size {
-            vectors.push(cursor.read_vector()?);
-            vertices.push(cursor.read_vertices()?);
+        // Populate the vectors in the STL struct
+        stl.populate_vecs(&mut cursor, 0, size)?;
+
+
+        Ok(stl)
+    }
+
+
+    /// A function that is used to populate the underlying Vectors of the STL. Planned for future use in parallelism of reading files.
+    fn populate_vecs(&mut self, cursor: &mut io::Cursor<Vec<u8>>, start: u32, end: u32) -> io::Result<()> {
+        for _ in start..end {
+            self.vectors.push(cursor.read_vector()?);
+            self.vertices.push(cursor.read_vertices()?);
             // Skip over the attribute bytes...
             // NOTE: Could possibly be used in some files, may need to record them.
             cursor.read_u16::<LittleEndian>()?;
         }
 
-        Ok(STL { vectors: vectors, vertices: vertices } )
+        Ok(())
     }
 
 }
@@ -83,6 +91,9 @@ impl STL {
 
 #[cfg(test)]
 mod tests {
+
+    use std::mem::size_of;
+
     use super::*;
 
     #[test]
@@ -97,10 +108,11 @@ mod tests {
     fn read_two_files() -> io::Result<()> {
         let _stl = STL::parse("data/teapot.stl")?;
         println!("first");
-        let _large = STL::parse("data/cube.stl")?;
+        let _large = STL::parse("data/NOADD.stl")?;
         println!("second");
 
         Ok(())
     }
+
 
 }
