@@ -14,8 +14,8 @@ const TRIANGLE_SIZE: usize = 50;
 /// The STL struct which houses the vecotrs and vertices generated from parsing an STL file.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct STL {
-    vectors: Vec<Vector3>,
-    vertices: Vec<Vertices>
+    pub vectors: Vec<Vector3>,
+    pub vertices: Vec<Vertices>
 }
 
 
