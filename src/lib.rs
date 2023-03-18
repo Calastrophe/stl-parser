@@ -2,26 +2,25 @@
 // Reads the binary formatted STL format, planning to add ASCII, but its slower.
 
 use std::io;
-use std::io::{SeekFrom::*, Seek};
-use std::fs;
+use std::io::{BufReader, Seek, SeekFrom};
+use std::fs::{File};
 use byteorder::{LittleEndian, ReadBytesExt};
 
-// NOTE: May need to rename 'Vertices', bit confusing.
 type Vertices = [(f32, f32, f32); 3];
 type Vector3 = (f32, f32, f32);
-// Will be used when work-stealing is added.
-// const SIZE_OF_TRIANGLE: u32 = 50;
+const TRIANGLE_SIZE: usize = 50;
 
 
 /// The STL struct which houses the vecotrs and vertices generated from parsing an STL file.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct STL {
     vectors: Vec<Vector3>,
     vertices: Vec<Vertices>
 }
 
 
-/// A trait which is implemented atop Cursor to read vectors and vertices from a given cursor.
-trait STLReader {
+/// A trait which is extended onto all std::io::Read to be able to extract vectors and groups of vertices.
+pub trait STLReaderExt {
     fn read_vector(&mut self) -> io::Result<Vector3>;
 
     fn read_vertices(&mut self) -> io::Result<Vertices>;
@@ -29,7 +28,8 @@ trait STLReader {
 
 
 
-impl STLReader for io::Cursor<Vec<u8>> {
+impl<T> STLReaderExt for T where
+    T: std::io::Read {
 
     /// Reads a vector3 from the given cursor and returns the values in a Vector3 type.
     fn read_vector(&mut self) -> io::Result<Vector3> {
@@ -55,35 +55,28 @@ impl STL {
 
     /// Parses a given filename and returns an STL file with vectors and vertices.
     pub fn parse(filename: &str) -> io::Result<STL> {
-        let file = fs::read(filename)?;
-        let mut cursor = io::Cursor::new(file);
-
-        // Read the amount of triangles that we need to read in and allocate space.
-        cursor.seek(Start(80))?;
-        let size = cursor.read_u32::<LittleEndian>()?;
+        let mut file = File::open(filename)?;
+        // Seek over the header of the STL file
+        file.seek(SeekFrom::Current(80))?;
+        // Grab the amount of triangles expected
+        let size = file.read_u32::<LittleEndian>()? as usize;
+        // Buffer our reader with the amount of triangles we expect to read
+        let mut reader = BufReader::with_capacity(size * TRIANGLE_SIZE, file);
 
         // Allocate the vectors inside of the STL
         let mut stl = STL {vectors: Vec::with_capacity(size as _), vertices: Vec::with_capacity(size as _)};
 
-        // Populate the vectors in the STL struct
-        stl.populate_vecs(&mut cursor, 0, size)?;
+        // Populate the STL file with our vectors and vertices, skipping over attribute bytes.
+        for _ in 0..size {
+            stl.vectors.push(reader.read_vector()?);
+            stl.vertices.push(reader.read_vertices()?);
+            // Skip over the attribute bytes...
+            // NOTE: Could possibly be used in some files, may need to record them.
+            reader.read_u16::<LittleEndian>()?;
+        }
 
 
         Ok(stl)
-    }
-
-
-    /// A function that is used to populate the underlying Vectors of the STL. Planned for future use in parallelism of reading files.
-    fn populate_vecs(&mut self, cursor: &mut io::Cursor<Vec<u8>>, start: u32, end: u32) -> io::Result<()> {
-        for _ in start..end {
-            self.vectors.push(cursor.read_vector()?);
-            self.vertices.push(cursor.read_vertices()?);
-            // Skip over the attribute bytes...
-            // NOTE: Could possibly be used in some files, may need to record them.
-            cursor.read_u16::<LittleEndian>()?;
-        }
-
-        Ok(())
     }
 
 }
@@ -112,5 +105,14 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn speed_test() -> io::Result<()> {
+        for i in 0..100 {
+            let _ = STL::parse("data/teapot.stl")?;
+            println!("{i} iteration");
+        }
+
+        Ok(())
+    }
 
 }
