@@ -3,8 +3,11 @@
 
 use std::io;
 use std::io::{BufReader, Seek, SeekFrom};
+use std::fs;
 use std::fs::{File};
 use byteorder::{LittleEndian, ReadBytesExt};
+use pest::Parser;
+use pest_derive::Parser;
 
 type Vertices = [(f32, f32, f32); 3];
 type Vector3 = (f32, f32, f32);
@@ -18,6 +21,9 @@ pub struct STL {
     pub vertices: Vec<Vertices>
 }
 
+#[derive(Parser)]
+#[grammar = "grammar.pest"]
+struct STLAsciiParser;
 
 /// A trait which is extended onto all std::io::Read to be able to extract vectors and groups of vertices.
 pub trait STLReaderExt {
@@ -54,7 +60,7 @@ impl<T> STLReaderExt for T where
 impl STL {
 
     /// Parses a given filename and returns an STL file with vectors and vertices.
-    pub fn parse(filename: &str) -> io::Result<STL> {
+    pub fn parse_binary(filename: &str) -> io::Result<STL> {
         let mut file = File::open(filename)?;
         // Seek over the header of the STL file
         file.seek(SeekFrom::Current(80))?;
@@ -79,6 +85,27 @@ impl STL {
         Ok(stl)
     }
 
+    pub fn parse_ascii(filename: &str) -> io::Result<()> {  
+        let file_str = fs::read_to_string(filename)?;
+        // fix these non-ascii causing errors with pest parser
+        // let ref_str = file_str.as_str().chars().map()
+        println!("{file_str}");
+        let parsed = STLAsciiParser::parse(Rule::solid, &file_str).expect("failed to parse the ascii file");
+
+            // for pair in parsed.into_iter() {
+            //     match pair.as_rule() {
+            //         Rule::solid => {
+            //             for facet in pair.into_inner() {
+            //                 println!("{:?}", facet);
+            //             }
+            //         }
+            //         _ => unreachable!()
+            //     }
+            // }
+
+        Ok(())
+    }
+
 }
 
 
@@ -89,7 +116,7 @@ mod tests {
 
     #[test]
     fn cube_check() -> io::Result<()> {
-        let stl = STL::parse("data/cube.stl")?;
+        let stl = STL::parse_binary("data/cube.stl")?;
         assert_eq!(12, stl.vectors.capacity());
         assert_eq!(12, stl.vectors.len());
         Ok(())
@@ -97,10 +124,17 @@ mod tests {
 
     #[test]
     fn read_two_files() -> io::Result<()> {
-        let _stl = STL::parse("data/teapot.stl")?;
+        let _stl = STL::parse_binary("data/teapot.stl")?;
         println!("first");
-        let _large = STL::parse("data/NOADD.stl")?;
+        let _large = STL::parse_binary("data/NOADD.stl")?;
         println!("second");
+
+        Ok(())
+    }
+
+    #[test]
+    fn ascii_test() -> io::Result<()> {
+        let _ = STL::parse_ascii("data/new.stl")?;
 
         Ok(())
     }
@@ -108,7 +142,7 @@ mod tests {
     #[test]
     fn speed_test() -> io::Result<()> {
         for i in 0..100 {
-            let _ = STL::parse("data/teapot.stl")?;
+            let _ = STL::parse_binary("data/teapot.stl")?;
             println!("{i} iteration");
         }
 

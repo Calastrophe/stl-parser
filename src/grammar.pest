@@ -1,0 +1,16 @@
+solid_start   =  { "solid" ~ name }
+solid_end     =  { "endsolid" ~ name }
+name          = @{ (ASCII_ALPHA | "_")+ }
+value         = @{ (ASCII_DIGIT | "." | "-")+ }
+facet_start   = _{ "facet" ~ "normal" }
+facet_end     = _{ "endfacet" }
+facet         =  { facet_start ~ vector ~ vertices ~ facet_end }
+vector        =  { value{3} }
+vertices      =  { vertice_start ~ vertice{3} ~ vertice_end }
+vertice       = _{ "vertex" ~ vector }
+vertice_start = _{ "outer" ~ "loop" }
+vertice_end   = _{ "endloop" }
+
+solid = _{ SOI ~ solid_start ~ facet+ ~ solid_end ~ EOI }
+
+WHITESPACE = _{ " " | "\t" | "\n" }
